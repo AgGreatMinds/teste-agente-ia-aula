@@ -3,12 +3,14 @@ import Anthropic from '@anthropic-ai/sdk';
 import { readFileSync } from 'node:fs';
 import { agenda } from './agenda.js';
 import { agora } from './hora.js';
+import { FERRAMENTA_AVISO, avisarReuniao } from './aviso.js';
 
 const claude = new Anthropic(); // lê ANTHROPIC_API_KEY do .env
 const PROMPT = new URL('../prompt.md', import.meta.url);
 
-// A Júlia só enxerga uma ferramenta: o subagente de agenda
+// Ferramentas da Júlia: o subagente de agenda e o aviso de reunião para a equipe
 const FERRAMENTAS = [
+  FERRAMENTA_AVISO,
   {
     name: 'agenda',
     description:
@@ -44,11 +46,19 @@ export async function responder(historico, contato) {
     // Resposta pronta para o lead
     if (r.stop_reason !== 'tool_use') return r.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
 
-    // Chamou a agenda: o subagente resolve e devolve só o resultado (isso não vai para o banco)
+    // Chamou ferramenta: executa e devolve só o resultado (isso não vai para o banco)
     mensagens.push({ role: 'assistant', content: r.content });
     const resultados = [];
     for (const b of r.content.filter((b) => b.type === 'tool_use')) {
-      resultados.push({ type: 'tool_result', tool_use_id: b.id, content: await agenda(b.input.pedido) });
+      try {
+        const saida = b.name === 'avisar_reuniao_marcada'
+          ? await avisarReuniao(b.input, contato?.telefone)
+          : await agenda(b.input.pedido);
+        resultados.push({ type: 'tool_result', tool_use_id: b.id, content: saida });
+      } catch (e) {
+        // Falha na ferramenta não derruba a conversa com o lead
+        resultados.push({ type: 'tool_result', tool_use_id: b.id, content: `Falhou: ${e.message}`, is_error: true });
+      }
     }
     mensagens.push({ role: 'user', content: resultados });
   }
