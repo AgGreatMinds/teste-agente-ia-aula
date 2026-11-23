@@ -55,5 +55,12 @@ export function historico(telefone, limite = 20) {
   // O Claude exige que a conversa comece por uma mensagem do usuário
   while (linhas.length && linhas[0].papel !== 'user') linhas.shift();
 
-  return linhas.map((l) => ({ role: l.papel, content: l.texto }));
+  // Mensagens seguidas do mesmo lado viram uma só (o lead manda 3 mensagens, o Claude lê como 1)
+  const conversa = [];
+  for (const l of linhas) {
+    const ultima = conversa[conversa.length - 1];
+    if (ultima && ultima.role === l.papel) ultima.content += `\n${l.texto}`;
+    else conversa.push({ role: l.papel, content: l.texto });
+  }
+  return conversa;
 }
