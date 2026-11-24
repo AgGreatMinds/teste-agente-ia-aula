@@ -1,6 +1,7 @@
 // Aviso para a equipe: quando a Júlia marca reunião, manda o briefing do lead no WhatsApp de quem vai conduzir
 import { enviarTexto } from './whatsapp/uazapi.js';
 
+// Número que recebe o briefing (só no .env; vazio = aviso desligado)
 const DESTINO = () => process.env.AVISO_TELEFONE;
 
 // Definição da ferramenta que a Júlia enxerga
@@ -47,6 +48,7 @@ export function montarAviso(d, telefoneLead) {
 
 // Executa a ferramenta: envia e devolve o resultado para a Júlia
 export async function avisarReuniao(dados, telefoneLead) {
+  if (!DESTINO()) return 'Aviso desligado: AVISO_TELEFONE não configurado.';
   await enviarTexto(DESTINO(), montarAviso(dados, telefoneLead));
   console.log(`[aviso] reunião do lead ...${String(telefoneLead).slice(-4)} enviada à equipe`);
   return 'Equipe avisada.';
